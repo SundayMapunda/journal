@@ -78,12 +78,20 @@ async function EntryList({
               </p>
               {e.title && <h2 className="font-medium">{e.title}</h2>}
             </div>
-            <form action={deleteEntry}>
-              <input type="hidden" name="id" value={e.id} />
-              <button type="submit" className="text-sm text-red-600">
-                Delete
-              </button>
-            </form>
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/entries/${e.id}/edit`}
+                className="text-sm underline opacity-70"
+              >
+                Edit
+              </Link>
+              <form action={deleteEntry}>
+                <input type="hidden" name="id" value={e.id} />
+                <button type="submit" className="text-sm text-red-600">
+                  Delete
+                </button>
+              </form>
+            </div>
           </div>
 
           <p className="mt-2 whitespace-pre-wrap">{e.body}</p>

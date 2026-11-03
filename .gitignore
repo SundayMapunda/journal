@@ -37,7 +37,7 @@ yarn-error.log*
 .vercel
 
 #windows files identifiers
-*_Zone.Identifier
+*Zone.Identifier
 
 # typescript
 *.tsbuildinfo

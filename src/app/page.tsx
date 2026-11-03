@@ -1,26 +1,72 @@
 import { Suspense } from "react";
+import Form from "next/form";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, type SQL } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/db";
-import { entries } from "@/db/schema";
+import { entries, tags, entryTags } from "@/db/schema";
 import { createEntry, deleteEntry } from "./actions";
 import SignOutButton from "./sign-out-button";
 
 const moods = ["😞", "😕", "😐", "🙂", "😄"];
 
-async function EntryList({ userId }: { userId: string }) {
+async function EntryList({
+  userId,
+  mood,
+  tag,
+}: {
+  userId: string;
+  mood: number | null;
+  tag: string | null;
+}) {
+  const conditions: SQL[] = [eq(entries.userId, userId)];
+
+  if (mood) conditions.push(eq(entries.mood, mood));
+
+  if (tag) {
+    conditions.push(
+      exists(
+        db
+          .select({ one: entryTags.entryId })
+          .from(entryTags)
+          .innerJoin(tags, eq(tags.id, entryTags.tagId))
+          .where(and(eq(entryTags.entryId, entries.id), eq(tags.name, tag)))
+      )
+    );
+  }
+
   const list = await db
     .select()
     .from(entries)
-    .where(eq(entries.userId, userId))
+    .where(and(...conditions))
     .orderBy(desc(entries.createdAt));
+
+  // Load the tags for the entries we're showing.
+  const ids = list.map((e) => e.id);
+  const tagRows =
+    ids.length > 0
+      ? await db
+          .select({ entryId: entryTags.entryId, name: tags.name })
+          .from(entryTags)
+          .innerJoin(tags, eq(tags.id, entryTags.tagId))
+          .where(inArray(entryTags.entryId, ids))
+      : [];
+
+  const tagsByEntry = new Map<string, string[]>();
+  for (const row of tagRows) {
+    tagsByEntry.set(row.entryId, [...(tagsByEntry.get(row.entryId) ?? []), row.name]);
+  }
 
   return (
     <section className="space-y-4">
       {list.length === 0 && (
-        <p className="opacity-60">No entries yet. Write your first one above.</p>
+        <p className="opacity-60">
+          {mood || tag
+            ? "No entries match this filter."
+            : "No entries yet. Write your first one above."}
+        </p>
       )}
 
       {list.map((e) => (
@@ -39,18 +85,51 @@ async function EntryList({ userId }: { userId: string }) {
               </button>
             </form>
           </div>
+
           <p className="mt-2 whitespace-pre-wrap">{e.body}</p>
+
+          {(tagsByEntry.get(e.id) ?? []).length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {tagsByEntry.get(e.id)!.map((name) => (
+                <Link
+                  key={name}
+                  href={`/?${new URLSearchParams({ tag: name })}`}
+                  className="rounded-full border px-2 py-0.5 text-xs opacity-80"
+                >
+                  #{name}
+                </Link>
+              ))}
+            </div>
+          )}
         </article>
       ))}
     </section>
   );
 }
 
-async function Journal() {
+async function Journal({
+  searchParams,
+}: {
+  searchParams: Promise<{ mood?: string; tag?: string }>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/sign-in");
 
   const userId = session.user.id;
+
+  // Filters come from the URL, e.g. /?mood=4&tag=work
+  const sp = await searchParams;
+  const moodNum = Number(sp.mood);
+  const mood = moodNum >= 1 && moodNum <= 5 ? moodNum : null;
+  const tag = sp.tag?.trim().toLowerCase() || null;
+
+  // Tags this user has actually used, for the filter dropdown.
+  const tagOptions = await db
+    .selectDistinct({ name: tags.name })
+    .from(tags)
+    .innerJoin(entryTags, eq(entryTags.tagId, tags.id))
+    .where(eq(tags.userId, userId))
+    .orderBy(tags.name);
 
   return (
     <main className="mx-auto max-w-2xl space-y-8 p-4">
@@ -75,6 +154,11 @@ async function Journal() {
           placeholder="What's on your mind?"
           className="w-full rounded border p-2"
         />
+        <input
+          name="tags"
+          placeholder="Tags, separated by commas (e.g. work, ideas)"
+          className="w-full rounded border p-2"
+        />
         <div className="flex items-center gap-3">
           <select name="mood" defaultValue="" className="rounded border p-2">
             <option value="">Mood</option>
@@ -93,17 +177,52 @@ async function Journal() {
         </div>
       </form>
 
+      <Form action="/" className="flex flex-wrap items-center gap-2">
+        <select
+          name="mood"
+          defaultValue={mood ? String(mood) : ""}
+          className="rounded border p-2"
+        >
+          <option value="">Any mood</option>
+          {moods.map((m, i) => (
+            <option key={i} value={i + 1}>
+              {m} {i + 1}
+            </option>
+          ))}
+        </select>
+        <select name="tag" defaultValue={tag ?? ""} className="rounded border p-2">
+          <option value="">Any tag</option>
+          {tagOptions.map((t) => (
+            <option key={t.name} value={t.name}>
+              #{t.name}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="rounded border px-3 py-2">
+          Filter
+        </button>
+        {(mood || tag) && (
+          <Link href="/" className="text-sm underline opacity-70">
+            Clear
+          </Link>
+        )}
+      </Form>
+
       <Suspense fallback={<p className="opacity-60">Loading entries...</p>}>
-        <EntryList userId={userId} />
+        <EntryList userId={userId} mood={mood} tag={tag} />
       </Suspense>
     </main>
   );
 }
 
-export default function Home() {
+export default function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ mood?: string; tag?: string }>;
+}) {
   return (
     <Suspense fallback={<p className="p-4 opacity-60">Loading...</p>}>
-      <Journal />
+      <Journal searchParams={searchParams} />
     </Suspense>
   );
 }

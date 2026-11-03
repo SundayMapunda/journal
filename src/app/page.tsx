@@ -1,17 +1,20 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 import { db } from "@/db/db";
 import { entries } from "@/db/schema";
 import { createEntry, deleteEntry } from "./actions";
+import SignOutButton from "./sign-out-button";
 
-const TEMP_USER_ID = "temp-user"; // replaced by real auth later
 const moods = ["😞", "😕", "😐", "🙂", "😄"];
 
-async function EntryList() {
+async function EntryList({ userId }: { userId: string }) {
   const list = await db
     .select()
     .from(entries)
-    .where(eq(entries.userId, TEMP_USER_ID))
+    .where(eq(entries.userId, userId))
     .orderBy(desc(entries.createdAt));
 
   return (
@@ -43,10 +46,21 @@ async function EntryList() {
   );
 }
 
-export default function Home() {
+async function Journal() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/sign-in");
+
+  const userId = session.user.id;
+
   return (
     <main className="mx-auto max-w-2xl space-y-8 p-4">
-      <h1 className="text-2xl font-semibold">My Journal</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">My Journal</h1>
+        <div className="flex items-center gap-3">
+          <span className="text-sm opacity-60">{session.user.name}</span>
+          <SignOutButton />
+        </div>
+      </header>
 
       <form action={createEntry} className="space-y-3 rounded-lg border p-4">
         <input
@@ -80,8 +94,16 @@ export default function Home() {
       </form>
 
       <Suspense fallback={<p className="opacity-60">Loading entries...</p>}>
-        <EntryList />
+        <EntryList userId={userId} />
       </Suspense>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<p className="p-4 opacity-60">Loading...</p>}>
+      <Journal />
+    </Suspense>
   );
 }

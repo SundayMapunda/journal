@@ -1,14 +1,22 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 import { db } from "@/db/db";
 import { entries } from "@/db/schema";
 
-// Temporary: replaced by the real logged-in user once we add auth.
-const TEMP_USER_ID = "temp-user";
+// The user id always comes from the login session, never from the form.
+async function requireUserId() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error("Not signed in");
+  return session.user.id;
+}
 
 export async function createEntry(formData: FormData) {
+  const userId = await requireUserId();
+
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const moodRaw = Number(formData.get("mood"));
@@ -17,7 +25,7 @@ export async function createEntry(formData: FormData) {
   if (!body) return;
 
   await db.insert(entries).values({
-    userId: TEMP_USER_ID,
+    userId,
     title: title || null,
     body,
     mood,
@@ -31,12 +39,13 @@ export async function createEntry(formData: FormData) {
 }
 
 export async function deleteEntry(formData: FormData) {
+  const userId = await requireUserId();
+
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await db
-    .delete(entries)
-    .where(and(eq(entries.id, id), eq(entries.userId, TEMP_USER_ID)));
+  // Only deletes the entry if it belongs to the logged-in user.
+  await db.delete(entries).where(and(eq(entries.id, id), eq(entries.userId, userId)));
 
   revalidatePath("/");
 }

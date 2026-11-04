@@ -6,9 +6,11 @@ import { redirect } from "next/navigation";
 import { and, desc, eq, exists, inArray, type SQL } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db/db";
-import { entries, tags, entryTags } from "@/db/schema";
+import { entries, tags, entryTags, attachments } from "@/db/schema";
+import { MAX_PHOTOS_PER_ENTRY, presignView } from "@/lib/r2";
 import { createEntry, deleteEntry } from "./actions";
 import SignOutButton from "./sign-out-button";
+import PhotoPicker from "@/components/photo-picker";
 
 const moods = ["😞", "😕", "😐", "🙂", "😄"];
 
@@ -59,6 +61,36 @@ async function EntryList({
     tagsByEntry.set(row.entryId, [...(tagsByEntry.get(row.entryId) ?? []), row.name]);
   }
 
+  // Load the photos for these entries, each with a temporary private link.
+  const photoRows =
+    ids.length > 0
+      ? await db
+          .select({
+            id: attachments.id,
+            entryId: attachments.entryId,
+            key: attachments.url,
+          })
+          .from(attachments)
+          .where(and(eq(attachments.userId, userId), inArray(attachments.entryId, ids)))
+          .orderBy(attachments.createdAt)
+      : [];
+
+  const signedPhotos = await Promise.all(
+    photoRows.map(async (p) => ({
+      id: p.id,
+      entryId: p.entryId,
+      src: await presignView(p.key),
+    }))
+  );
+
+  const photosByEntry = new Map<string, { id: string; src: string }[]>();
+  for (const p of signedPhotos) {
+    photosByEntry.set(p.entryId, [
+      ...(photosByEntry.get(p.entryId) ?? []),
+      { id: p.id, src: p.src },
+    ]);
+  }
+
   return (
     <section className="space-y-4">
       {list.length === 0 && (
@@ -95,6 +127,22 @@ async function EntryList({
           </div>
 
           <p className="mt-2 whitespace-pre-wrap">{e.body}</p>
+
+          {(photosByEntry.get(e.id) ?? []).length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {photosByEntry.get(e.id)!.map((p) => (
+                <a key={p.id} href={p.src} target="_blank" rel="noreferrer">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.src}
+                    alt="Journal photo"
+                    loading="lazy"
+                    className="h-28 w-28 rounded object-cover"
+                  />
+                </a>
+              ))}
+            </div>
+          )}
 
           {(tagsByEntry.get(e.id) ?? []).length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -167,6 +215,7 @@ async function Journal({
           placeholder="Tags, separated by commas (e.g. work, ideas)"
           className="w-full rounded border p-2"
         />
+        <PhotoPicker maxPhotos={MAX_PHOTOS_PER_ENTRY} />
         <div className="flex items-center gap-3">
           <select name="mood" defaultValue="" className="rounded border p-2">
             <option value="">Mood</option>

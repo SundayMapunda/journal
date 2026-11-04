@@ -4,9 +4,11 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { MAX_PHOTOS_PER_ENTRY, presignView } from "@/lib/r2";
 import { db } from "@/db/db";
-import { entries, tags, entryTags } from "@/db/schema";
+import { entries, tags, entryTags, attachments } from "@/db/schema";
 import { updateEntry } from "@/app/actions";
+import PhotoPicker from "@/components/photo-picker";
 
 const moods = ["😞", "😕", "😐", "🙂", "😄"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,6 +33,16 @@ async function EditForm({ params }: { params: Promise<{ id: string }> }) {
     .from(entryTags)
     .innerJoin(tags, eq(tags.id, entryTags.tagId))
     .where(eq(entryTags.entryId, entry.id));
+
+  const photoRows = await db
+    .select({ id: attachments.id, key: attachments.url })
+    .from(attachments)
+    .where(and(eq(attachments.entryId, entry.id), eq(attachments.userId, session.user.id)))
+    .orderBy(attachments.createdAt);
+
+  const photos = await Promise.all(
+    photoRows.map(async (p) => ({ id: p.id, src: await presignView(p.key) }))
+  );
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-4">
@@ -58,6 +70,28 @@ async function EditForm({ params }: { params: Promise<{ id: string }> }) {
           placeholder="Tags, separated by commas (e.g. work, ideas)"
           className="w-full rounded border p-2"
         />
+
+        {photos.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {photos.map((p) => (
+              <label key={p.id} className="space-y-1 text-center text-xs">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={p.src}
+                  alt="Journal photo"
+                  className="h-20 w-20 rounded object-cover"
+                />
+                <span className="flex items-center justify-center gap-1">
+                  <input type="checkbox" name="removePhotoIds" value={p.id} />
+                  Remove
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <PhotoPicker maxPhotos={MAX_PHOTOS_PER_ENTRY - photos.length} />
+
         <div className="flex items-center gap-3">
           <select
             name="mood"

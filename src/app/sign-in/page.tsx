@@ -36,58 +36,73 @@ export default function SignInPage() {
     router.refresh();
   }
 
-  return (
-    <main className="mx-auto max-w-sm space-y-6 p-4 pt-16">
-      <h1 className="text-2xl font-semibold">
-        {mode === "signin" ? "Sign in to your journal" : "Create your journal"}
-      </h1>
+  const isSignIn = mode === "signin";
 
-      <form onSubmit={onSubmit} className="space-y-3">
-        {mode === "signup" && (
+  return (
+    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6 py-12">
+      <p className="font-serif text-lg font-semibold">Journal</p>
+
+      <h1 className="mt-8 font-serif text-3xl font-semibold leading-tight">
+        {isSignIn ? "Welcome back" : "Start your journal"}
+      </h1>
+      <p className="mt-2 text-sm text-muted">
+        {isSignIn
+          ? "Sign in to read and write your entries."
+          : "Create an account. Your entries stay private to you."}
+      </p>
+
+      <form onSubmit={onSubmit} className="mt-8 space-y-3">
+        {!isSignIn && (
           <input
             name="name"
             placeholder="Your name"
+            aria-label="Your name"
+            autoComplete="name"
             required
-            className="w-full rounded border p-2"
+            className="field"
           />
         )}
         <input
           name="email"
           type="email"
           placeholder="Email"
+          aria-label="Email"
+          autoComplete="email"
           required
-          className="w-full rounded border p-2"
+          className="field"
         />
         <input
           name="password"
           type="password"
           placeholder="Password (at least 8 characters)"
+          aria-label="Password"
+          autoComplete={isSignIn ? "current-password" : "new-password"}
           required
           minLength={8}
-          className="w-full rounded border p-2"
+          className="field"
         />
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black"
-        >
-          {loading ? "Please wait..." : mode === "signin" ? "Sign in" : "Sign up"}
+        <button type="submit" disabled={loading} className="btn w-full">
+          {loading ? "Please wait..." : isSignIn ? "Sign in" : "Create account"}
         </button>
       </form>
 
       <button
         type="button"
         onClick={() => {
-          setMode(mode === "signin" ? "signup" : "signin");
+          setMode(isSignIn ? "signup" : "signin");
           setError("");
         }}
-        className="text-sm underline opacity-70"
+        className="link-quiet mt-6 self-start"
       >
-        {mode === "signin"
-          ? "No account yet? Sign up"
+        {isSignIn
+          ? "No account yet? Create one"
           : "Already have an account? Sign in"}
       </button>
     </main>

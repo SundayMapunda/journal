@@ -14,7 +14,7 @@ export default function SignOutButton() {
         router.push("/sign-in");
         router.refresh();
       }}
-      className="text-sm underline opacity-70"
+      className="link-quiet"
     >
       Sign out
     </button>

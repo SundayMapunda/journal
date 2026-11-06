@@ -9,8 +9,8 @@ import { db } from "@/db/db";
 import { entries, tags, entryTags, attachments } from "@/db/schema";
 import { updateEntry } from "@/app/actions";
 import PhotoPicker from "@/components/photo-picker";
+import MoodPicker from "@/components/mood-picker";
 
-const moods = ["😞", "😕", "😐", "🙂", "😄"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function EditForm({ params }: { params: Promise<{ id: string }> }) {
@@ -44,78 +44,98 @@ async function EditForm({ params }: { params: Promise<{ id: string }> }) {
     photoRows.map(async (p) => ({ id: p.id, src: await presignView(p.key) }))
   );
 
+  const [y, m, d] = entry.entryDate.split("-").map(Number);
+  const written = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <h1 className="text-2xl font-semibold">Edit entry</h1>
-      <p className="text-sm opacity-60">Written on {entry.entryDate}</p>
+    <main className="mx-auto w-full max-w-2xl px-5 pb-24 pt-6 sm:px-6">
+      <header className="flex items-center justify-between">
+        <span className="font-serif text-lg font-semibold">Journal</span>
+        <Link href="/" className="link-quiet">
+          Back to journal
+        </Link>
+      </header>
 
-      <form action={updateEntry} className="space-y-3 rounded-lg border p-4">
-        <input type="hidden" name="id" value={entry.id} />
-        <input
-          name="title"
-          defaultValue={entry.title ?? ""}
-          placeholder="Title (optional)"
-          className="w-full rounded border p-2"
-        />
-        <textarea
-          name="body"
-          required
-          rows={10}
-          defaultValue={entry.body}
-          className="w-full rounded border p-2"
-        />
-        <input
-          name="tags"
-          defaultValue={tagRows.map((t) => t.name).join(", ")}
-          placeholder="Tags, separated by commas (e.g. work, ideas)"
-          className="w-full rounded border p-2"
-        />
+      <section className="mt-14">
+        <p className="text-sm text-muted">Editing the entry from</p>
+        <h1 className="mt-1 font-serif text-3xl font-semibold leading-tight sm:text-4xl">
+          {written}
+        </h1>
 
-        {photos.length > 0 && (
-          <div className="flex flex-wrap gap-3">
-            {photos.map((p) => (
-              <label key={p.id} className="space-y-1 text-center text-xs">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p.src}
-                  alt="Journal photo"
-                  className="h-20 w-20 rounded object-cover"
-                />
-                <span className="flex items-center justify-center gap-1">
-                  <input type="checkbox" name="removePhotoIds" value={p.id} />
-                  Remove
-                </span>
-              </label>
-            ))}
+        <form
+          action={updateEntry}
+          className="mt-6 space-y-4 rounded-2xl border border-line bg-sheet p-4 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 sm:p-5"
+        >
+          <input type="hidden" name="id" value={entry.id} />
+
+          <input
+            name="title"
+            defaultValue={entry.title ?? ""}
+            placeholder="Title (optional)"
+            aria-label="Title"
+            className="w-full bg-transparent font-serif text-xl font-semibold placeholder:text-muted/60 focus:outline-none"
+          />
+          <textarea
+            name="body"
+            required
+            rows={10}
+            defaultValue={entry.body}
+            aria-label="Entry"
+            className="w-full resize-y bg-transparent font-serif text-[1.05rem] leading-[1.75] placeholder:text-muted/60 focus:outline-none"
+          />
+          <input
+            name="tags"
+            defaultValue={tagRows.map((t) => t.name).join(", ")}
+            placeholder="Tags, separated by commas"
+            aria-label="Tags"
+            className="w-full border-t border-line bg-transparent pt-3 text-sm placeholder:text-muted/60 focus:outline-none"
+          />
+
+          {photos.length > 0 && (
+            <div className="flex flex-wrap gap-4">
+              {photos.map((p) => (
+                <label key={p.id} className="space-y-1.5 text-xs text-muted">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.src}
+                    alt="Journal photo"
+                    className="h-20 w-20 rounded-lg object-cover"
+                  />
+                  <span className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      name="removePhotoIds"
+                      value={p.id}
+                      className="accent-[var(--accent)]"
+                    />
+                    Remove
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          <PhotoPicker maxPhotos={MAX_PHOTOS_PER_ENTRY - photos.length} />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+            <MoodPicker defaultValue={entry.mood} />
+            <div className="flex items-center gap-4">
+              <Link href="/" className="link-quiet">
+                Cancel
+              </Link>
+              <button type="submit" className="btn">
+                Save changes
+              </button>
+            </div>
           </div>
-        )}
-
-        <PhotoPicker maxPhotos={MAX_PHOTOS_PER_ENTRY - photos.length} />
-
-        <div className="flex items-center gap-3">
-          <select
-            name="mood"
-            defaultValue={entry.mood ? String(entry.mood) : ""}
-            className="rounded border p-2"
-          >
-            <option value="">Mood</option>
-            {moods.map((m, i) => (
-              <option key={i} value={i + 1}>
-                {m} {i + 1}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black"
-          >
-            Save changes
-          </button>
-          <Link href="/" className="text-sm underline opacity-70">
-            Cancel
-          </Link>
-        </div>
-      </form>
+        </form>
+      </section>
     </main>
   );
 }
@@ -126,7 +146,7 @@ export default function EditEntryPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<p className="p-4 opacity-60">Loading...</p>}>
+    <Suspense fallback={<p className="p-6 text-muted">Loading...</p>}>
       <EditForm params={params} />
     </Suspense>
   );

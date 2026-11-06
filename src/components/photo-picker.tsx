@@ -59,7 +59,7 @@ export default function PhotoPicker({ maxPhotos }: { maxPhotos: number }) {
 
   if (maxPhotos <= 0) {
     return (
-      <p className="text-sm opacity-60">
+      <p className="text-sm text-muted">
         This entry already has the maximum number of photos.
       </p>
     );
@@ -126,7 +126,7 @@ export default function PhotoPicker({ maxPhotos }: { maxPhotos: number }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <input
         ref={inputRef}
         type="file"
@@ -141,33 +141,37 @@ export default function PhotoPicker({ maxPhotos }: { maxPhotos: number }) {
           type="button"
           disabled={busy || photos.length >= maxPhotos}
           onClick={() => inputRef.current?.click()}
-          className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+          className="btn-quiet"
         >
           {busy ? "Uploading..." : "Add photos"}
         </button>
-        <span className="text-xs opacity-60">
-          {photos.length}/{maxPhotos} added
-          {busy && " - wait for the upload before saving"}
+        <span className="text-xs text-muted">
+          {photos.length} of {maxPhotos} added
+          {busy && ". Wait for the upload to finish before saving."}
         </span>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
 
       {photos.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {photos.map((p) => (
             <div key={p.key} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={p.previewUrl}
                 alt="Photo to be saved"
-                className="h-20 w-20 rounded object-cover"
+                className="h-20 w-20 rounded-lg object-cover"
               />
               <button
                 type="button"
                 onClick={() => removePhoto(p.key)}
                 aria-label="Remove photo"
-                className="absolute -right-1 -top-1 rounded-full bg-black px-1.5 text-xs text-white"
+                className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-ink text-xs leading-none text-paper"
               >
                 ✕
               </button>

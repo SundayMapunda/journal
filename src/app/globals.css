@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
+/*
+  All colors live here. To re-theme the whole app, change these values only.
+  Mood colors run cool (low) to warm (great), so the list reads at a glance.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light dark;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --paper: #f1f4f2;
+  --sheet: #fafbfa;
+  --ink: #1b2a2f;
+  --muted: #5f7176;
+  --line: #d5ddda;
+  --accent: #1e6e7e;
+  --accent-ink: #ffffff;
+  --danger: #b4402f;
+
+  --mood-1: #6d5ba8;
+  --mood-2: #4a7fb5;
+  --mood-3: #7f9c97;
+  --mood-4: #e0a03e;
+  --mood-5: #e2603a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #111a1c;
+    --sheet: #182325;
+    --ink: #e3ecea;
+    --muted: #8fa3a7;
+    --line: #2a3a3d;
+    --accent: #6cc0cf;
+    --accent-ink: #0e1a1c;
+    --danger: #e8806f;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-reading), ui-serif, Georgia, serif;
+}
+
+@layer base {
+  body {
+    @apply bg-paper font-sans text-ink;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+}
+
+@layer components {
+  /* Text inputs and selects */
+  .field {
+    @apply w-full rounded-lg border border-line bg-sheet px-3 py-2 text-ink placeholder:text-muted/70;
+  }
+
+  /* Main button */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink disabled:opacity-50;
+  }
+  .btn:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  /* Secondary button */
+  .btn-quiet {
+    @apply inline-flex items-center justify-center rounded-lg border border-line px-3 py-2 text-sm text-ink disabled:opacity-50;
+  }
+  .btn-quiet:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+  }
+
+  /* Small text-style links and buttons */
+  .link-quiet {
+    @apply text-sm text-muted underline-offset-4 hover:text-ink hover:underline;
+  }
+
+  /* Mood circles: used as radio buttons in forms and as plain badges in the list */
+  .mood-dot {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background: color-mix(in srgb, var(--c) 16%, transparent);
+    font-size: 1.05rem;
+    line-height: 1;
+    transition:
+      transform 0.12s ease,
+      border-color 0.12s ease,
+      background 0.12s ease;
+  }
+  .mood-dot-sm {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.85rem;
+  }
+  .mood-label {
+    cursor: pointer;
+  }
+  .mood-input:checked + .mood-dot {
+    border-color: var(--c);
+    background: color-mix(in srgb, var(--c) 32%, transparent);
+    transform: scale(1.08);
+  }
+  .mood-input:focus-visible + .mood-dot {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mood-dot {
+      transition: none;
+    }
+  }
 }
